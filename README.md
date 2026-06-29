@@ -8,6 +8,8 @@ searchable panel, builds the command line live, runs it asynchronously, and
 renders the output with syntax highlighting plus navigable section/symbol
 indexes.
 
+![objdump GUI showing aligned, syntax-highlighted disassembly with section and symbol navigators, the options panel, and the find bar](docs/screenshot.png)
+
 ## Highlights
 
 - **Every option, grouped & searchable** — disassembly, headers, symbols,
