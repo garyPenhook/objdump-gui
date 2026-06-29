@@ -8,7 +8,7 @@ filters visible options by label/help.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLabel,
     QLineEdit,
-    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -169,7 +168,7 @@ class OptionsPanel(QScrollArea):
         hgrid.setContentsMargins(8, 0, 0, 0)
         checks: list[QCheckBox] = []
         per_col = 3
-        for i, (disp, data) in enumerate(spec.choices):
+        for i, (disp, _data) in enumerate(spec.choices):
             cb = QCheckBox(disp)
             cb.toggled.connect(self.changed)
             checks.append(cb)
@@ -231,7 +230,8 @@ class OptionsPanel(QScrollArea):
 
     def _filter(self, text: str) -> None:
         needle = text.lower().strip()
-        for box, (_title, _specs) in zip(self._group_boxes, self._groups_meta):
+        for box, (_title, _specs) in zip(self._group_boxes, self._groups_meta,
+                                         strict=True):
             any_visible = False
             for row in self.rows:
                 if row.spec in _specs:

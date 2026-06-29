@@ -3,12 +3,20 @@ window, and optionally load a file passed on the command line."""
 
 from __future__ import annotations
 
+import os
 import sys
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import introspect
 from .main_window import MainWindow
+
+
+def _load_icon() -> QIcon | None:
+    path = os.path.join(os.path.dirname(__file__), "..", "packaging",
+                        "objdump-gui.svg")
+    return QIcon(path) if os.path.exists(path) else None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -16,6 +24,9 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication(argv)
     app.setApplicationName("objdump-gui")
     app.setOrganizationName("objdump-gui")
+    icon = _load_icon()
+    if icon is not None:
+        app.setWindowIcon(icon)
 
     # Allow an explicit binary via env (OBJDUMP) or first --objdump=… style arg.
     preferred = None

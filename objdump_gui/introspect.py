@@ -46,7 +46,7 @@ def _is_exec(path: str) -> bool:
     return os.path.isfile(path) and os.access(path, os.X_OK)
 
 
-def arch_family(caps: "Capabilities") -> str:
+def arch_family(caps: Capabilities) -> str:
     """Classify the probed objdump's target family for syntax highlighting."""
     arches = caps.architectures
     if any(a.startswith("avr") for a in arches):
@@ -89,7 +89,8 @@ def discover_objdumps() -> list[str]:
             if name != "objdump" and not name.endswith("-objdump"):
                 continue
             full = os.path.join(d, name)
-            if name not in by_name and os.path.isfile(full) and os.access(full, os.X_OK):
+            if (name not in by_name and os.path.isfile(full)
+                    and os.access(full, os.X_OK)):
                 by_name[name] = full
 
     out: list[str] = []

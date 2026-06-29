@@ -10,14 +10,14 @@ import os
 import shlex
 import subprocess
 
-from PySide6.QtCore import Qt, QSettings
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QGuiApplication
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtGui import QAction, QActionGroup, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QDockWidget,
     QFileDialog,
-    QGridLayout,
+    QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
@@ -27,16 +27,15 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QStatusBar,
-    QWidget,
-    QHBoxLayout,
     QVBoxLayout,
+    QWidget,
 )
 
 from . import introspect
-from .runner import ObjdumpRunner, run_capture
+from .ansi import has_ansi
 from .parsers import strip_ansi
 from .prettyprint import format_disassembly
-from .ansi import has_ansi
+from .runner import ObjdumpRunner, run_capture
 from .widgets.navigators import SectionsNavigator, SymbolsNavigator
 from .widgets.options_panel import OptionsPanel
 from .widgets.output_view import OutputView
@@ -853,7 +852,9 @@ QHeaderView::section { background: #2d2d30; color: #d4d4d4; border: 0; padding: 
 QTableWidget { alternate-background-color: #2a2a2b; gridline-color: #333; }
 QMenuBar, QMenu, QToolBar, QStatusBar { background: #2d2d30; color: #d4d4d4; }
 QMenu::item:selected, QMenuBar::item:selected { background: #094771; }
-QPushButton, QToolButton { background: #333337; border: 1px solid #444; padding: 3px 8px; }
+QPushButton, QToolButton {
+    background: #333337; border: 1px solid #444; padding: 3px 8px;
+}
 QPushButton:hover, QToolButton:hover { background: #3f3f46; }
 QPushButton:disabled { color: #777; }
 QCheckBox, QLabel { color: #d4d4d4; }

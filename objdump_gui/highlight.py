@@ -7,8 +7,6 @@ aware: :func:`make_palette` returns colours tuned for dark or light backgrounds.
 
 from __future__ import annotations
 
-import re
-
 from PySide6.QtCore import QRegularExpression
 from PySide6.QtGui import (
     QColor,

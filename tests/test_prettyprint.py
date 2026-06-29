@@ -2,7 +2,7 @@
 
 import pytest
 
-from objdump_gui.prettyprint import format_disassembly, _BYTES_RE
+from objdump_gui.prettyprint import _BYTES_RE, format_disassembly
 from tests import fixtures as fx
 
 

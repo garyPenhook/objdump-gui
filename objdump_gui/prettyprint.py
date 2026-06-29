@@ -137,7 +137,7 @@ def format_disassembly(
 
     out: list[str] = []
     seen_label = False
-    for raw, (kind, f) in zip(lines, parsed):
+    for raw, (kind, f) in zip(lines, parsed, strict=True):
         if kind == "label":
             # Blank line between functions, but don't stack blanks when a
             # section banner already left one.

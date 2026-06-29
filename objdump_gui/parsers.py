@@ -58,7 +58,8 @@ def parse_sections(text: str) -> list[Section]:
             # match must not require one.
             if nxt and re.fullmatch(r"[A-Z0-9_]+(?:,\s*[A-Z0-9_]+)*", nxt):
                 flags = nxt
-        out.append(Section(*m.groups(), flags=flags))
+        idx, name, size, vma, lma, file_off, algn = m.groups()
+        out.append(Section(idx, name, size, vma, lma, file_off, algn, flags))
     return out
 
 

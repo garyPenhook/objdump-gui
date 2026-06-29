@@ -76,11 +76,11 @@ class ObjdumpRunner(QObject):
 
     def _read_out(self) -> None:
         if self._proc:
-            self._out += bytes(self._proc.readAllStandardOutput())
+            self._out += self._proc.readAllStandardOutput().data()
 
     def _read_err(self) -> None:
         if self._proc:
-            self._err += bytes(self._proc.readAllStandardError())
+            self._err += self._proc.readAllStandardError().data()
 
     def _on_finished(self, code: int, status) -> None:
         self._read_out()
@@ -111,8 +111,8 @@ def run_capture(program: str, args: list[str], parent, callback) -> QProcess:
     state = {"done": False}
 
     def _drain():
-        buf.extend(bytes(proc.readAllStandardOutput()))
-        buf.extend(bytes(proc.readAllStandardError()))
+        buf.extend(proc.readAllStandardOutput().data())
+        buf.extend(proc.readAllStandardError().data())
 
     def _finish(out: str, code: int):
         if state["done"]:

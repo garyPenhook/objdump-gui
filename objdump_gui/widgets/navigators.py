@@ -31,7 +31,6 @@ from PySide6.QtWidgets import (
 
 from ..parsers import parse_sections, parse_symbols
 
-
 # (header, attribute, numeric) per column.
 _SECTION_COLS = [
     ("Name", "name", False), ("Size", "size", True), ("VMA", "vma", True),

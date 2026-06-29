@@ -85,6 +85,25 @@ pip install -e .
 objdump-gui /bin/ls
 ```
 
+### Desktop integration (optional)
+
+```bash
+install -Dm644 packaging/objdump-gui.svg ~/.local/share/icons/hicolor/scalable/apps/objdump-gui.svg
+install -Dm644 packaging/objdump-gui.desktop ~/.local/share/applications/objdump-gui.desktop
+```
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest                 # 68 hermetic tests (QT_QPA_PLATFORM=offscreen, no toolchain needed)
+ruff check .           # lint
+mypy                   # type-check the pure-logic modules
+bandit -c pyproject.toml -r objdump_gui
+```
+
+CI (GitHub Actions, `.github/workflows/ci.yml`) runs all four on every push/PR.
+
 ## Layout
 
 | Area | Contents |
@@ -103,6 +122,8 @@ objdump-gui /bin/ls
 | `runner.py` | Async (QProcess) execution, cancellable |
 | `parsers.py` | Tolerant parsing for the section/symbol tables; ANSI strip |
 | `prettyprint.py` | Reformat disassembly into aligned, readable columns |
+| `ansi.py` | Parse objdump's ANSI SGR color output into text formats |
+| `widgets/diff_dialog.py` | Binary-diff and hex-dump viewer dialogs |
 | `highlight.py` | Disassembly syntax highlighter (dark/light) |
 | `widgets/options_panel.py` | Auto-generated options UI + command builder |
 | `widgets/navigators.py` | Sections & Symbols tables |

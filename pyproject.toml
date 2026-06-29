@@ -10,7 +10,7 @@ dependencies = ["PySide6>=6.5"]
 objdump-gui = "objdump_gui.app:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "ruff>=0.5", "mypy>=1.8", "bandit[toml]>=1.7"]
 
 [build-system]
 requires = ["setuptools>=61"]
@@ -22,3 +22,37 @@ include = ["objdump_gui*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+# B008: Qt defaults like QModelIndex() in signatures are intentional.
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true        # PySide6 ships partial stubs
+warn_unused_ignores = false
+check_untyped_defs = false
+# PySide6's stubs use scoped enums (Qt.DockWidgetArea.X) while the runtime also
+# accepts the short form (Qt.X), producing many false attr-defined errors. Type
+# checking therefore targets the pure-logic modules (see the `files` list), which
+# carry the real correctness risk; the Qt view layer is covered by the tests.
+files = [
+    "objdump_gui/options.py",
+    "objdump_gui/parsers.py",
+    "objdump_gui/prettyprint.py",
+    "objdump_gui/introspect.py",
+]
+
+[tool.bandit]
+# B101: asserts are how pytest works; B404/B603: we invoke objdump as a list
+# argv with no shell, which is the safe pattern.
+skips = ["B101", "B404", "B603"]
+exclude_dirs = ["tests"]

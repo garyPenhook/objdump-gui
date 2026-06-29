@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=objdump GUI
+GenericName=Disassembly Viewer
+Comment=Professional front-end for GNU binutils objdump
+Exec=objdump-gui %f
+Icon=objdump-gui
+Terminal=false
+Categories=Development;Debugger;Profiling;
+Keywords=objdump;disassembler;disassembly;binutils;elf;binary;reverse-engineering;
+MimeType=application/x-executable;application/x-object;application/x-sharedlib;application/x-pie-executable;

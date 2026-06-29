@@ -2,7 +2,6 @@
 
 import pytest
 
-from objdump_gui.options import build_groups
 from objdump_gui.widgets.options_panel import OptionsPanel
 from objdump_gui.widgets.output_view import OutputView
 from tests import fixtures as fx

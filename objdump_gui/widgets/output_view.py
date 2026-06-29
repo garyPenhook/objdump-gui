@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 
-from PySide6.QtCore import Qt, QEvent, QRegularExpression, Signal
+from PySide6.QtCore import QEvent, QRegularExpression, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -16,14 +16,13 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QCheckBox,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
-    QPushButton,
     QTextEdit,
     QToolButton,
     QVBoxLayout,
-    QHBoxLayout,
     QWidget,
 )
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <rect x="6" y="6" width="116" height="116" rx="20" fill="#1e1e1e"/>
+  <rect x="6" y="6" width="116" height="116" rx="20" fill="none" stroke="#3a3a3a" stroke-width="2"/>
+  <!-- address column -->
+  <g font-family="monospace" font-size="13" font-weight="bold">
+    <text x="20" y="40" fill="#6a9955">4011</text>
+    <text x="20" y="62" fill="#6a9955">4016</text>
+    <text x="20" y="84" fill="#6a9955">401e</text>
+    <text x="20" y="106" fill="#6a9955">4024</text>
+    <!-- mnemonics -->
+    <text x="66" y="40" fill="#569cd6">push</text>
+    <text x="66" y="62" fill="#569cd6">mov</text>
+    <text x="66" y="84" fill="#569cd6">call</text>
+    <text x="66" y="106" fill="#569cd6">ret</text>
+  </g>
+  <!-- operand accents -->
+  <rect x="100" y="30" width="12" height="9" rx="2" fill="#9cdcfe"/>
+  <rect x="96" y="52" width="16" height="9" rx="2" fill="#9cdcfe"/>
+  <rect x="100" y="74" width="12" height="9" rx="2" fill="#dcdcaa"/>
+</svg>

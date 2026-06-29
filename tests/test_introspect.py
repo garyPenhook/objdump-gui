@@ -1,6 +1,6 @@
 """Tests for objdump capability parsing and architecture classification."""
 
-from objdump_gui.introspect import Capabilities, arch_family, _parse_disasm_options
+from objdump_gui.introspect import Capabilities, _parse_disasm_options, arch_family
 from tests import fixtures as fx
 
 
