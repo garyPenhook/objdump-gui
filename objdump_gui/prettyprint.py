@@ -17,7 +17,11 @@ from __future__ import annotations
 import re
 
 _LABEL_RE = re.compile(r"^[0-9a-fA-F]+\s+<(.+)>:$")
+# --no-addresses drops the leading address from label lines too: "<name>:".
+_LABEL_NOADDR_RE = re.compile(r"^<(.+)>:$")
 _ADDR_RE = re.compile(r"^\s*([0-9a-fA-F]+):$")
+# --prefix-addresses lines have no tabs: "<hexaddr> <sym+off> mnemonic operands".
+_PREFIX_RE = re.compile(r"^([0-9a-fA-F]{4,}) (<[^>]+>)\s+(\S.*)$")
 # A raw-bytes field is one or more whole-byte hex groups separated by single
 # spaces. Different targets group bytes differently: x86/AVR space-separate byte
 # pairs ("48 89 e5", "80 91 00 00") while ARM/AArch64 emit a contiguous opcode
@@ -50,21 +54,41 @@ def _parse(line: str):
     """
     if line.startswith("Disassembly of section"):
         return ("banner", {})
-    m = _LABEL_RE.match(line)
+    m = _LABEL_RE.match(line) or _LABEL_NOADDR_RE.match(line)
     if m:
         return ("label", {"name": m.group(1)})
     if "\t" not in line:
+        # --prefix-addresses mode (space-separated, no tabs).
+        pm = _PREFIX_RE.match(line)
+        if pm:
+            addr, sym, rest = pm.groups()
+            head = rest.split(None, 1)
+            return ("prefix", {
+                "addr": addr, "sym": sym,
+                "mnemonic": head[0] if head else "",
+                "operands": head[1].strip() if len(head) > 1 else "",
+            })
         return ("other", {})
     parts = line.split("\t")
     am = _ADDR_RE.match(parts[0])
-    if not am:
+    no_addr = False
+    if am:
+        addr = am.group(1)
+    elif parts[0].strip() == "" and len(parts) > 1:
+        addr = ""                       # possibly --no-addresses mode
+        no_addr = True
+    else:
         return ("other", {})
-    addr = am.group(1)
     fields = [f for f in parts[1:]]
     bytestr = ""
     if fields and _BYTES_RE.fullmatch(fields[0].strip()):
         bytestr = fields[0].strip()
         fields = fields[1:]
+    elif no_addr:
+        # An address-less line whose first field is not raw bytes is
+        # indistinguishable from tab-indented prose (e.g. -S source lines), so
+        # leave it untouched rather than mis-format it as an instruction.
+        return ("other", {})
     insn = " ".join(f.strip() for f in fields if f.strip())
     if not insn:
         # Bytes-only continuation line (a long instruction's wrapped bytes).
@@ -87,7 +111,7 @@ def format_disassembly(
     lines = text.split("\n")
     parsed = [_parse(ln) for ln in lines]
 
-    addr_w = mnem_w = bytes_w = 0
+    addr_w = mnem_w = bytes_w = sym_w = paddr_w = 0
     for kind, f in parsed:
         if kind == "insn":
             addr_w = max(addr_w, len(f["addr"]))
@@ -96,8 +120,20 @@ def format_disassembly(
         elif kind == "byte_cont":
             addr_w = max(addr_w, len(f["addr"]))
             bytes_w = max(bytes_w, len(f["bytes"]))
+        elif kind == "prefix":
+            paddr_w = max(paddr_w, len(f["addr"]))
+            sym_w = max(sym_w, len(f["sym"]))
+            mnem_w = max(mnem_w, len(f["mnemonic"]))
     mnem_w = min(max(mnem_w, 4), 9)
     bytes_w = min(bytes_w, 30)
+    # When --no-addresses is in effect every insn addr is empty -> no addr column.
+    has_addr = addr_w > 0
+
+    def _ops(f):
+        ops = f["operands"]
+        if ops and space_operands:
+            ops = _space_commas(ops)
+        return ops
 
     out: list[str] = []
     seen_label = False
@@ -110,21 +146,30 @@ def format_disassembly(
             seen_label = True
             out.append(f"{f['name']}:")
         elif kind == "insn":
-            line = "  " + f["addr"].rjust(addr_w) + ":  "
+            line = "  "
+            if has_addr:
+                line += f["addr"].rjust(addr_w) + ":  "
             if show_bytes:
                 line += f["bytes"].ljust(bytes_w) + "  "
             line += f["mnemonic"].ljust(mnem_w)
-            ops = f["operands"]
+            ops = _ops(f)
             if ops:
-                if space_operands:
-                    ops = _space_commas(ops)
+                line += " " + ops
+            out.append(line.rstrip())
+        elif kind == "prefix":
+            line = ("  " + f["addr"].rjust(paddr_w) + "  "
+                    + f["sym"].ljust(sym_w) + "  " + f["mnemonic"].ljust(mnem_w))
+            ops = _ops(f)
+            if ops:
                 line += " " + ops
             out.append(line.rstrip())
         elif kind == "byte_cont":
             # Continuation bytes carry no instruction; keep them only when the
             # byte column is shown, otherwise drop for a cleaner read.
-            if show_bytes:
+            if show_bytes and has_addr:
                 out.append("  " + f["addr"].rjust(addr_w) + ":  " + f["bytes"])
+            elif show_bytes:
+                out.append("  " + f["bytes"])
         else:
             out.append(raw)
     return "\n".join(out)

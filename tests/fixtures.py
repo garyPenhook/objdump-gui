@@ -39,6 +39,21 @@ RISCV_DISASM = "\n".join([
     "   2:\t8082\tret",
 ])
 
+# objdump -d --no-addresses (label and instructions lose the address).
+NO_ADDRESSES_DISASM = "\n".join([
+    "<main>:",
+    "\t55                   \tpush   %rbp",
+    "\t48 89 e5             \tmov    %rsp,%rbp",
+    "\te8 e3 ff ff ff       \tcall   <helper>",
+])
+
+# objdump -d --prefix-addresses (no tabs; addr + <sym+off> + insn).
+PREFIX_ADDRESSES_DISASM = "\n".join([
+    "0000000000401115 <main> push   %rbp",
+    "0000000000401116 <main+0x1> mov    %rsp,%rbp",
+    "000000000040111e <main+0x9> call   0000000000401106 <helper>",
+])
+
 # objdump -h around a single-flag (.bss / no comma) section.
 SECTIONS_TEXT = "\n".join([
     "Sections:",

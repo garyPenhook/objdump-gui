@@ -68,6 +68,22 @@ def test_blank_line_between_functions():
     assert "main:" in out and "add:" in out
 
 
+def test_no_addresses_mode():
+    out = format_disassembly(fx.NO_ADDRESSES_DISASM)
+    assert "\t" not in out
+    assert "main:" in out          # address-less label still recognized
+    assert "401115:" not in out    # no address column
+    assert "push" in out and "%rbp" in out
+
+
+def test_prefix_addresses_mode():
+    out = format_disassembly(fx.PREFIX_ADDRESSES_DISASM)
+    assert "\t" not in out
+    assert "<main>" in out and "<main+0x1>" in out
+    assert "401106" in out         # call target preserved
+    assert "push" in out and "mov" in out
+
+
 @pytest.mark.parametrize("good", ["55", "48 89 e5", "4408", "0b010000", "9d2d",
                                   "80 91 00 00"])
 def test_bytes_regex_accepts_real_byte_fields(good):

@@ -172,6 +172,10 @@ class SectionsNavigator(_Navigator):
     _NAME_COL = 0
     _FILTER_HINT = "Filter sections…"
 
+    def section_names(self) -> list[str]:
+        return [self.model.data(self.model.index(r, 0))
+                for r in range(self.model.rowCount())]
+
     def _on_double_click(self, proxy_index):
         name = self._name_at(proxy_index)
         if name:

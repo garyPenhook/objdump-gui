@@ -4,12 +4,16 @@ lifecycle around :class:`ObjdumpRunner`."""
 
 from __future__ import annotations
 
+import difflib
 import json
+import os
 import shlex
+import subprocess
 
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QGuiApplication
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QDockWidget,
     QFileDialog,
@@ -32,6 +36,7 @@ from . import introspect
 from .runner import ObjdumpRunner, run_capture
 from .parsers import strip_ansi
 from .prettyprint import format_disassembly
+from .ansi import has_ansi
 from .widgets.navigators import SectionsNavigator, SymbolsNavigator
 from .widgets.options_panel import OptionsPanel
 from .widgets.output_view import OutputView
@@ -274,6 +279,11 @@ class MainWindow(QMainWindow):
         self.presets_menu = mb.addMenu("&Presets")
         self._refresh_presets_menu()
 
+        m_tools = mb.addMenu("&Tools")
+        m_tools.addAction("Compare With Binary…").triggered.connect(
+            self._compare_binary)
+        m_tools.addAction("Section Hex Dump…").triggered.connect(self._hex_dump)
+
         m_edit = mb.addMenu("&Edit")
         m_edit.addAction(self.act_find)
         m_edit.addAction(self.act_goto)
@@ -399,7 +409,9 @@ class MainWindow(QMainWindow):
 
     def _on_run_finished(self, out: str, err: str, code: int, crashed: bool) -> None:
         self._set_busy(False)
-        self._raw_output = strip_ansi(out)
+        # Keep ANSI intact so --disassembler-color can render real colors in raw
+        # mode; stripping happens per-render path below.
+        self._raw_output = out
         self._render_output()
         if err.strip():
             self.log.appendPlainText(err.rstrip())
@@ -411,16 +423,23 @@ class MainWindow(QMainWindow):
             self.lbl_status.setText(f"objdump exited {code}")
 
     def _render_output(self) -> None:
-        """Display the last run's output, applying aligned formatting if on."""
+        """Display the last run's output: aligned, ANSI-colored, or plain."""
+        raw = self._raw_output
         if self.act_aligned.isChecked():
+            # Aligned reformatting is incompatible with inline ANSI spans, so
+            # strip color and rely on the syntax highlighter.
             text = format_disassembly(
-                self._raw_output,
+                strip_ansi(raw),
                 show_bytes=self.act_pretty_bytes.isChecked(),
                 space_operands=self.act_pretty_spacing.isChecked(),
             )
+            self.output.set_text(text)
+        elif has_ansi(raw):
+            self.output.set_colored(raw)
+            text = strip_ansi(raw)
         else:
-            text = self._raw_output
-        self.output.set_text(text)
+            text = strip_ansi(raw)
+            self.output.set_text(text)
         self.lbl_lines.setText(f"{text.count(chr(10)):,} lines")
 
     def _on_format_changed(self) -> None:
@@ -469,6 +488,64 @@ class MainWindow(QMainWindow):
         else:
             self.lbl_status.setText(f"Address {text.strip()} not in output")
 
+    # -- tools: compare & hex dump -----------------------------------------
+
+    def _objdump_text(self, argv: list[str], path: str) -> str:
+        try:
+            cp = subprocess.run(            # noqa: S603 (list argv, no shell)
+                [self.caps.path, *argv, "--", path],
+                capture_output=True, text=True, timeout=120, check=False,
+            )
+            return strip_ansi(cp.stdout or "")
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"<error running objdump: {exc}>"
+
+    def _compare_binary(self) -> None:
+        if not self.current_file:
+            QMessageBox.information(self, "Compare", "Open a file first.")
+            return
+        other, _ = QFileDialog.getOpenFileName(
+            self, "Compare with…", self.settings.value("last_dir", ""),
+            "All files (*)"
+        )
+        if not other:
+            return
+        argv = self.options.build_argv()
+        if not any(a in argv for a in ("-d", "-D")):
+            argv = ["-d", *argv]
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            a = format_disassembly(self._objdump_text(argv, self.current_file))
+            b = format_disassembly(self._objdump_text(argv, other))
+        finally:
+            QApplication.restoreOverrideCursor()
+        diff = "\n".join(difflib.unified_diff(
+            a.splitlines(), b.splitlines(),
+            fromfile=os.path.basename(self.current_file),
+            tofile=os.path.basename(other), lineterm="",
+        ))
+        from .widgets.diff_dialog import DiffDialog
+        title = (f"Diff: {os.path.basename(self.current_file)} "
+                 f"↔ {os.path.basename(other)}")
+        DiffDialog(title, diff, self).exec()
+
+    def _hex_dump(self) -> None:
+        if not self.current_file:
+            QMessageBox.information(self, "Hex Dump", "Open a file first.")
+            return
+        names = self.sections_nav.section_names()
+        if not names:
+            QMessageBox.information(self, "Hex Dump", "No sections loaded yet.")
+            return
+        sec, ok = QInputDialog.getItem(
+            self, "Section Hex Dump", "Section:", names, 0, False
+        )
+        if not ok:
+            return
+        from .widgets.diff_dialog import TextViewerDialog
+        text = self._objdump_text(["-s", "-j", sec], self.current_file)
+        TextViewerDialog(f"Hex dump: {sec}", text, self).exec()
+
     # -- export -------------------------------------------------------------
 
     def _export_to(self, content: str, what: str, default_ext: str) -> None:
@@ -489,13 +566,12 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Export", f"Could not write:\n{exc}")
 
     def _export_raw(self) -> None:
-        self._export_to(self._raw_output, "raw output",
+        self._export_to(strip_ansi(self._raw_output), "raw output",
                         "Text files (*.txt);;All files (*)")
 
     def _export_aligned(self) -> None:
-        from .prettyprint import format_disassembly
         text = format_disassembly(
-            self._raw_output,
+            strip_ansi(self._raw_output),
             show_bytes=self.act_pretty_bytes.isChecked(),
             space_operands=self.act_pretty_spacing.isChecked(),
         )

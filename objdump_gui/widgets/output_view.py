@@ -271,7 +271,30 @@ class OutputView(QWidget):
     # -- content ------------------------------------------------------------
 
     def set_text(self, text: str) -> None:
+        # Make sure the syntax highlighter is driving the document (it may have
+        # been detached by a previous set_colored() call).
+        if self.highlighter.document() is not self.editor.document():
+            self.highlighter.setDocument(self.editor.document())
         self.editor.setPlainText(text)
+        if self.find_bar.isVisible():
+            self._highlight_all_matches()
+
+    def set_colored(self, text: str) -> None:
+        """Render text containing ANSI SGR codes with real colors.
+
+        The syntax highlighter is detached so it does not repaint over the
+        ANSI-derived formatting; set_text() re-attaches it next time.
+        """
+        from ..ansi import parse_ansi
+        self.highlighter.setDocument(None)
+        self.editor.clear()
+        cursor = self.editor.textCursor()
+        for segment, fmt in parse_ansi(text):
+            if fmt is not None:
+                cursor.insertText(segment, fmt)
+            else:
+                cursor.insertText(segment)
+        self.editor.moveCursor(QTextCursor.Start)
         if self.find_bar.isVisible():
             self._highlight_all_matches()
 

@@ -40,6 +40,13 @@ indexes.
 - **Option presets & session memory** — save/load named option sets (Presets
   menu); window/dock layout and last-used options persist across sessions.
 - **Export** — raw output, aligned output, or syntax-highlighted HTML.
+- **Binary compare** (*Tools ▸ Compare With Binary*) — unified, color-coded diff
+  of two binaries' aligned disassembly; **Section Hex Dump** views any section's
+  bytes/ASCII.
+- **Real `--disassembler-color`** — objdump's ANSI colors are rendered (in raw
+  view) instead of stripped; the aligned view uses the built-in highlighter.
+- **Address modes** — the aligned view handles `--no-addresses` and
+  `--prefix-addresses` layouts as well as the default.
 - **Cross-toolchain / AVR support** — GNU objdump backends on your `PATH`
   (`avr-objdump`, `arm-none-eabi-objdump`, `aarch64-linux-gnu-objdump`, …) are
   auto-discovered and listed under *File ▸ Backend Toolchain*; switch backend in
