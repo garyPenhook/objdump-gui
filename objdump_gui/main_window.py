@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):
         self._set_busy(False)
         self.act_pretty_bytes.setEnabled(self.act_aligned.isChecked())
         self.act_pretty_spacing.setEnabled(self.act_aligned.isChecked())
+        self._restore_layout()
 
     # -- central layout (output + command preview) --------------------------
 
@@ -603,7 +604,19 @@ class MainWindow(QMainWindow):
             f"<b>Path:</b> {self.caps.path}</p>"
         )
 
+    def _restore_layout(self) -> None:
+        geo = self.settings.value("geometry")
+        if geo is not None:
+            self.restoreGeometry(geo)
+        state = self.settings.value("windowState")
+        if state is not None:
+            self.restoreState(state)
+
     def closeEvent(self, event):
+        # Persist window geometry and dock/toolbar layout (objectNames are set
+        # on every dock/toolbar so restoreState can match them back).
+        self.settings.setValue("geometry", self.saveGeometry())
+        self.settings.setValue("windowState", self.saveState())
         self.runner.cancel()
         super().closeEvent(event)
 

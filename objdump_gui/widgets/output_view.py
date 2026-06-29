@@ -188,7 +188,11 @@ class OutputView(QWidget):
                 # at the same position and never advance, so step past it and do
                 # not count/highlight an empty hit.
                 pos = cursor.selectionEnd() + 1
-                if pos > doc.characterCount():
+                # Valid positions are 0..characterCount-1; pos == characterCount
+                # is past the end. Using '>' here let setPosition() clamp back to
+                # the last position, re-match the same zero-width hit and loop
+                # forever (e.g. pattern "a*" matching empty at EOF).
+                if pos >= doc.characterCount():
                     break
                 cursor.setPosition(pos)
                 continue
