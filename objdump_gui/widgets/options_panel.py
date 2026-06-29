@@ -203,6 +203,17 @@ class OptionsPanel(QScrollArea):
             row.reset()
         self.changed.emit()
 
+    def get_state(self) -> dict:
+        """Serialize all option values (JSON-friendly: bool/str/list)."""
+        return {row.spec.key: row.value() for row in self.rows}
+
+    def set_state(self, state: dict) -> None:
+        """Apply a previously serialized state; unknown keys are ignored."""
+        for row in self.rows:
+            if row.spec.key in state:
+                row.setter(state[row.spec.key])
+        self.changed.emit()
+
     def set_section_filter(self, section: str) -> None:
         """Populate the -j 'limit to sections' field (used by the navigator)."""
         for row in self.rows:

@@ -101,3 +101,51 @@ def test_symbols_navigator_stale_load_discarded(qapp):
     nav.load("SYMBOL TABLE:\n")   # newer load with no symbols supersedes
     _drain_threadpool(qapp)
     assert nav.count() == 0
+
+
+def test_options_panel_state_roundtrip(qapp, x86_caps):
+    p = OptionsPanel(x86_caps)
+    for row in p.rows:
+        if row.spec.key == "x":
+            row.setter(True)
+        if row.spec.key == "insn_width":
+            row.setter("7")
+        if row.spec.key == "m":
+            row.setter("i386")
+    state = p.get_state()
+    p.reset()
+    assert "-x" not in p.build_argv()
+    p.set_state(state)
+    argv = p.build_argv()
+    assert "-x" in argv and "--insn-width=7" in argv
+    assert argv[argv.index("-m") + 1] == "i386"
+
+
+def test_output_view_goto_address(qapp):
+    ov = OutputView(dark=True, arch="x86")
+    ov.set_text(fx.X86_DISASM)
+    assert ov.goto_address("0x401115")
+    assert ov.goto_address("401124")
+    assert not ov.goto_address("0xdeadbeef")
+    assert not ov.goto_address("nothex")
+
+
+def test_output_view_invalid_regex_feedback(qapp):
+    ov = OutputView(dark=True, arch="x86")
+    ov.set_text("abc\nabc")
+    ov.show_find()
+    ov.regex_cb.setChecked(True)
+    ov.find_input.setText("(")          # unbalanced -> invalid
+    assert ov.count_label.text() == "invalid regex"
+    ov.find_input.setText("a")          # valid again
+    assert "match" in ov.count_label.text()
+
+
+def test_output_view_follow_symbol(qapp):
+    ov = OutputView(dark=True, arch="x86")
+    got = []
+    ov.navigate_symbol.connect(got.append)
+    ov.set_text(fx.X86_DISASM)
+    assert ov.editor.find("<helper>")   # places cursor on the token
+    ov.follow_under_cursor()
+    assert got == ["helper"]

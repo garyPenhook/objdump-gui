@@ -4,7 +4,9 @@ count and next/prev navigation)."""
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QRegularExpression
+import re
+
+from PySide6.QtCore import Qt, QEvent, QRegularExpression, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -29,6 +31,10 @@ from ..highlight import AsmHighlighter
 
 
 class OutputView(QWidget):
+    # Emitted when the user Ctrl+clicks (or follows) a <symbol> / token in the
+    # disassembly so the main window can jump to its definition.
+    navigate_symbol = Signal(str)
+
     def __init__(self, dark: bool = True, arch: str = "x86", parent=None):
         super().__init__(parent)
         self._dark = dark
@@ -41,6 +47,8 @@ class OutputView(QWidget):
         font.setStyleHint(QFont.Monospace)
         font.setPointSize(10)
         self.editor.setFont(font)
+        # Ctrl+click on a symbol token follows it to its definition.
+        self.editor.viewport().installEventFilter(self)
 
         self.highlighter = AsmHighlighter(self.editor.document(), dark=dark,
                                           arch=arch)
@@ -126,6 +134,15 @@ class OutputView(QWidget):
         return text
 
     def _on_find_changed(self) -> None:
+        # Give explicit feedback for an invalid regex instead of a silent "0".
+        if self.regex_cb.isChecked() and self.find_input.text():
+            rx = QRegularExpression(self.find_input.text())
+            if not rx.isValid():
+                self.find_input.setStyleSheet("QLineEdit { background: #5a1d1d; }")
+                self.count_label.setText("invalid regex")
+                self.editor.setExtraSelections([])
+                return
+        self.find_input.setStyleSheet("")
         self._highlight_all_matches()
 
     def find_next(self) -> None:
@@ -161,6 +178,51 @@ class OutputView(QWidget):
         if found:
             self.editor.centerCursor()
         return found
+
+    def goto_address(self, text: str) -> bool:
+        """Jump to an instruction by address (accepts 0x-prefixed or bare hex)."""
+        t = text.strip().lower()
+        if t.startswith("0x"):
+            t = t[2:]
+        try:
+            norm = format(int(t, 16), "x")
+        except ValueError:
+            return False
+        # objdump prints the address immediately before a ':' on each line.
+        return self.goto_text(f"{norm}:")
+
+    # -- symbol following ---------------------------------------------------
+
+    def eventFilter(self, obj, event):
+        if (obj is self.editor.viewport()
+                and event.type() == QEvent.MouseButtonPress
+                and event.button() == Qt.LeftButton
+                and event.modifiers() & Qt.ControlModifier):
+            cursor = self.editor.cursorForPosition(event.position().toPoint())
+            name = self._symbol_at(cursor)
+            if name:
+                self.navigate_symbol.emit(name)
+                return True
+        return super().eventFilter(obj, event)
+
+    def follow_under_cursor(self) -> None:
+        name = self._symbol_at(self.editor.textCursor())
+        if name:
+            self.navigate_symbol.emit(name)
+
+    @staticmethod
+    def _symbol_at(cursor) -> str | None:
+        block = cursor.block().text()
+        col = cursor.positionInBlock()
+        # Prefer a <symbol> token spanning the click column.
+        for m in re.finditer(r"<([^>]+)>", block):
+            if m.start() <= col <= m.end():
+                return m.group(1)
+        # Otherwise fall back to the word under the cursor.
+        c = QTextCursor(cursor)
+        c.select(QTextCursor.WordUnderCursor)
+        word = c.selectedText().strip()
+        return word or None
 
     def _clear_extra_selections(self) -> None:
         self.editor.setExtraSelections([])

@@ -4,6 +4,7 @@ lifecycle around :class:`ObjdumpRunner`."""
 
 from __future__ import annotations
 
+import json
 import shlex
 
 from PySide6.QtCore import Qt, QSettings
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
     QGridLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -68,6 +70,7 @@ class MainWindow(QMainWindow):
         self._build_statusbar()
 
         self.options.changed.connect(self._update_preview)
+        self.output.navigate_symbol.connect(self._jump_to_symbol)
         self._connect_navigators()
         self._apply_theme()
         self._update_preview()
@@ -76,6 +79,7 @@ class MainWindow(QMainWindow):
         self.act_pretty_bytes.setEnabled(self.act_aligned.isChecked())
         self.act_pretty_spacing.setEnabled(self.act_aligned.isChecked())
         self._restore_layout()
+        self._restore_last_options()
 
     # -- central layout (output + command preview) --------------------------
 
@@ -195,6 +199,14 @@ class MainWindow(QMainWindow):
         self.act_find.setShortcut(QKeySequence.Find)
         self.act_find.triggered.connect(self.output.show_find)
 
+        self.act_goto = QAction("&Go to Address…", self)
+        self.act_goto.setShortcut("Ctrl+G")
+        self.act_goto.triggered.connect(self._goto_address)
+
+        self.act_follow = QAction("Follow Symbol Under Cursor", self)
+        self.act_follow.setShortcut("Ctrl+]")
+        self.act_follow.triggered.connect(self.output.follow_under_cursor)
+
         self.act_reset = QAction("Reset Options", self)
         self.act_reset.triggered.connect(self.options.reset)
 
@@ -241,6 +253,12 @@ class MainWindow(QMainWindow):
         m_file.addAction(self.act_reload)
         m_file.addSeparator()
         m_file.addAction(self.act_save)
+        m_export = m_file.addMenu("&Export")
+        m_export.addAction("Raw output…").triggered.connect(self._export_raw)
+        m_export.addAction("Aligned output…").triggered.connect(
+            self._export_aligned)
+        m_export.addAction("Highlighted HTML…").triggered.connect(
+            self._export_html)
         m_file.addSeparator()
         self.toolchain_menu = m_file.addMenu("Backend &Toolchain")
         self._refresh_toolchain_menu()
@@ -253,8 +271,13 @@ class MainWindow(QMainWindow):
         m_run.addAction(self.act_copy_cmd)
         m_run.addAction(self.act_reset)
 
+        self.presets_menu = mb.addMenu("&Presets")
+        self._refresh_presets_menu()
+
         m_edit = mb.addMenu("&Edit")
         m_edit.addAction(self.act_find)
+        m_edit.addAction(self.act_goto)
+        m_edit.addAction(self.act_follow)
 
         m_view = mb.addMenu("&View")
         for dock in (self.options_dock, self.dis_opts_dock, self.sections_dock,
@@ -275,7 +298,8 @@ class MainWindow(QMainWindow):
         tb.setObjectName("toolbar_main")
         tb.setMovable(False)
         for act in (self.act_open, self.act_reload, self.act_run,
-                    self.act_cancel, self.act_save, self.act_find):
+                    self.act_cancel, self.act_save, self.act_find,
+                    self.act_goto):
             tb.addAction(act)
         tb.addSeparator()
         tb.addAction(self.act_aligned)
@@ -433,6 +457,116 @@ class MainWindow(QMainWindow):
     def _disassemble_symbol(self, name: str) -> None:
         self.options.set_disassemble_symbol(name)
         self.run()
+
+    def _goto_address(self) -> None:
+        text, ok = QInputDialog.getText(
+            self, "Go to Address", "Address (hex, e.g. 0x401136 or 401136):"
+        )
+        if not ok or not text.strip():
+            return
+        if self.output.goto_address(text):
+            self.lbl_status.setText(f"Jumped to {text.strip()}")
+        else:
+            self.lbl_status.setText(f"Address {text.strip()} not in output")
+
+    # -- export -------------------------------------------------------------
+
+    def _export_to(self, content: str, what: str, default_ext: str) -> None:
+        if not content:
+            QMessageBox.information(self, "Export", f"There is no {what} yet.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, f"Export {what}", self.settings.value("last_dir", ""),
+            default_ext,
+        )
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(content)
+            self.lbl_status.setText(f"Exported {what} to {path}")
+        except OSError as exc:
+            QMessageBox.warning(self, "Export", f"Could not write:\n{exc}")
+
+    def _export_raw(self) -> None:
+        self._export_to(self._raw_output, "raw output",
+                        "Text files (*.txt);;All files (*)")
+
+    def _export_aligned(self) -> None:
+        from .prettyprint import format_disassembly
+        text = format_disassembly(
+            self._raw_output,
+            show_bytes=self.act_pretty_bytes.isChecked(),
+            space_operands=self.act_pretty_spacing.isChecked(),
+        )
+        self._export_to(text, "aligned output",
+                        "Text files (*.txt);;All files (*)")
+
+    def _export_html(self) -> None:
+        # The syntax highlighter formats the document, so toHtml() carries colors.
+        html = self.output.editor.document().toHtml()
+        self._export_to(html if self.output.text() else "", "highlighted HTML",
+                        "HTML files (*.html);;All files (*)")
+
+    # -- option presets -----------------------------------------------------
+
+    def _presets(self) -> dict:
+        raw = self.settings.value("presets", "{}")
+        try:
+            return json.loads(raw) if isinstance(raw, str) else {}
+        except (ValueError, TypeError):
+            return {}
+
+    def _save_presets(self, presets: dict) -> None:
+        self.settings.setValue("presets", json.dumps(presets))
+        self._refresh_presets_menu()
+
+    def _save_preset(self) -> None:
+        name, ok = QInputDialog.getText(self, "Save Preset", "Preset name:")
+        name = name.strip()
+        if not ok or not name:
+            return
+        presets = self._presets()
+        presets[name] = self.options.get_state()
+        self._save_presets(presets)
+        self.lbl_status.setText(f"Saved preset '{name}'")
+
+    def _load_preset(self, name: str) -> None:
+        presets = self._presets()
+        if name in presets:
+            self.options.set_state(presets[name])
+            self.lbl_status.setText(f"Loaded preset '{name}'")
+            if self.current_file:
+                self.run()
+
+    def _delete_preset(self) -> None:
+        presets = self._presets()
+        if not presets:
+            return
+        name, ok = QInputDialog.getItem(
+            self, "Delete Preset", "Preset:", list(presets), 0, False
+        )
+        if ok and name in presets:
+            del presets[name]
+            self._save_presets(presets)
+            self.lbl_status.setText(f"Deleted preset '{name}'")
+
+    def _refresh_presets_menu(self) -> None:
+        self.presets_menu.clear()
+        self.presets_menu.addAction("Save Current As…").triggered.connect(
+            self._save_preset
+        )
+        presets = self._presets()
+        if presets:
+            self.presets_menu.addSeparator()
+            for name in sorted(presets):
+                self.presets_menu.addAction(name).triggered.connect(
+                    lambda _=False, n=name: self._load_preset(n)
+                )
+            self.presets_menu.addSeparator()
+            self.presets_menu.addAction("Delete Preset…").triggered.connect(
+                self._delete_preset
+            )
 
     # -- command preview / clipboard ---------------------------------------
 
@@ -612,11 +746,22 @@ class MainWindow(QMainWindow):
         if state is not None:
             self.restoreState(state)
 
+    def _restore_last_options(self) -> None:
+        raw = self.settings.value("last_options")
+        if not raw:
+            return
+        try:
+            state = json.loads(raw)
+        except (ValueError, TypeError):
+            return
+        self.options.set_state(state)
+
     def closeEvent(self, event):
-        # Persist window geometry and dock/toolbar layout (objectNames are set
-        # on every dock/toolbar so restoreState can match them back).
+        # Persist window geometry, dock/toolbar layout and last-used options.
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("windowState", self.saveState())
+        self.settings.setValue("last_options",
+                               json.dumps(self.options.get_state()))
         self.runner.cancel()
         super().closeEvent(event)
 

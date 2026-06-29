@@ -30,9 +30,16 @@ indexes.
 - **Syntax-highlighted output** with an incremental find bar (plain /
   case-sensitive / regex, match count, wrap-around). ANSI color from
   `--disassembler-color` is stripped automatically.
-- **Section & Symbol navigators** — browse/filter sections and (demangled)
-  symbols independent of the main options; double-click a symbol to jump to it in
-  the disassembly, or right-click to re-run with `--disassemble=<sym>`.
+- **Section & Symbol navigators** — model/view tables (fast on huge symbol
+  tables; parsing runs off the UI thread) with substring filter and numeric
+  hex sorting; double-click a symbol to jump to it, or right-click to re-run
+  with `--disassemble=<sym>`.
+- **In-disassembly navigation** — Ctrl+click a `<symbol>`/call target to follow
+  it to its definition (or *Edit ▸ Follow Symbol*, `Ctrl+]`), and *Go to
+  Address* (`Ctrl+G`) jumps to any instruction by address.
+- **Option presets & session memory** — save/load named option sets (Presets
+  menu); window/dock layout and last-used options persist across sessions.
+- **Export** — raw output, aligned output, or syntax-highlighted HTML.
 - **Cross-toolchain / AVR support** — GNU objdump backends on your `PATH`
   (`avr-objdump`, `arm-none-eabi-objdump`, `aarch64-linux-gnu-objdump`, …) are
   auto-discovered and listed under *File ▸ Backend Toolchain*; switch backend in
