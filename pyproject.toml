@@ -1,0 +1,17 @@
+[project]
+name = "objdump-gui"
+version = "1.0.0"
+description = "A professional PySide6 front-end for GNU binutils objdump"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["PySide6>=6.5"]
+
+[project.scripts]
+objdump-gui = "objdump_gui.app:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["objdump_gui*"]
