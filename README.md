@@ -1,5 +1,7 @@
 # objdump GUI
 
+[![CI](https://github.com/garyPenhook/objdump-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/garyPenhook/objdump-gui/actions/workflows/ci.yml)
+
 A professional desktop front-end for GNU binutils **`objdump`**, built with
 PySide6 (Qt 6). It exposes *every* objdump option through an organized,
 searchable panel, builds the command line live, runs it asynchronously, and
